@@ -1,0 +1,160 @@
+---
+title: "UnemploymentGraphs"
+format: html
+editor: visual
+---
+```{r, message=FALSE, warning=FALSE, echo=FALSE}
+# Set R chunk default options:
+# -do not output all R messages in html report
+# -do not output all R warnings in html report
+# -set default figure widths and heights for all code blocks, unless you 
+#  override them
+knitr::opts_chunk$set(
+  message = FALSE, warning = FALSE, fig.width = 16/2, fig.height = 9/2
+)
+```
+
+
+# libraries
+```{r, echo=FALSE}
+# Load all packages here. It's good practice to load all packages at the
+# beginning of a qmd file so that collaborators can see in one shot all packages
+# they'll need installed:
+library(tidyverse)
+library(fivethirtyeight)
+library(leaflet)
+library(sf)
+library(maps)
+
+# USA specific data
+library(USAboundaries)
+library(tidycensus)
+library(tmaptools)
+library(macleish)
+library(usmap) #import the package
+library(ggplot2)
+library(tigris)
+library(scales)
+library(ggmap)
+library(patchwork)
+library(viridis)
+library(ggrepel)
+
+cities_data <- data.frame(
+  location = c("Boston", "Cape Cod", "Springfield", "Worcester", "Lowell", "Cambridge", "Quincy", "New Bedford", "Fall River", "Salem", "Framingham", "North Adams"),
+  lon = c(-71.0589, -70.2782, -72.5898, -71.8023, -71.3162, -71.1097, -71.0023, -70.9342, -71.2080, -70.8983, -71.4162, -73.1196),
+  lat = c(42.3601, 41.6688, 42.1015, 42.2626, 42.6334, 42.3736, 42.2529, 41.6362, 41.7010, 42.5195, 42.2793, 42.7007)
+)
+```
+
+## male unemployment
+```{r}
+ma_unemployment_male <- get_acs(
+  geography = "tract",
+  variables = c("B23001_001", "B23001_008", "B23001_015", "B23001_022", "B23001_029", "B23001_036", "B23001_043", "B23001_050", "B23001_057", "B23001_064", "B23001_071", "B23001_076", "B23001_081", "B23001_086"),
+  state = "MA",
+  year = 2020,
+  geometry = TRUE)|>
+  mutate(
+    lng = purrr::map_dbl(geometry, ~st_centroid(.x)[[1]]),
+    lat = purrr::map_dbl(geometry, ~st_centroid(.x)[[2]])
+  )
+
+pivotedUnem_Male = ma_unemployment_male %>%
+  pivot_wider(
+    id_cols = c("GEOID", "geometry", "lng", "lat"),
+    names_from = "variable", 
+    values_from = "estimate") %>%
+  mutate(total_male_unemployed = B23001_008 + B23001_015 + B23001_022 + B23001_029 + B23001_036 + B23001_043 + B23001_050 + B23001_057 + B23001_064 + B23001_071 + B23001_076 + B23001_081 + B23001_086,
+         percentage = total_male_unemployed / B23001_001)
+
+
+
+cities_data <- data.frame(
+  location = c("Boston", "Cape Cod", "Springfield", "Worcester", "Lowell", "Cambridge", "Quincy", "New Bedford", "Fall River", "Salem", "Framingham", "North Adams"),
+  lon = c(-71.0589, -70.2782, -72.5898, -71.8023, -71.3162, -71.1097, -71.0023, -70.9342, -71.2080, -70.8983, -71.4162, -73.1196),
+  lat = c(42.3601, 41.6688, 42.1015, 42.2626, 42.6334, 42.3736, 42.2529, 41.6362, 41.7010, 42.5195, 42.2793, 42.7007)
+)
+
+ggraphPivotUnem_Male <- ggplot() +
+  geom_sf(data = pivotedUnem_Male,
+          aes(fill = total_male_unemployed)) +
+  scale_fill_viridis(name = "Unemployment",
+                     option = "magma",
+                     limits = c(0, 626)) +
+  labs(
+    title = "Population of Unemployed Males over Age 16",
+    fill = "Unemployment"
+  ) + ggrepel::geom_text_repel(data = cities_data, aes(x = lon, y = lat, label = location))
+ggraphPivotUnem_Male
+
+```
+## male unemployment as a percentage of total population
+```{r}
+ggraphPivotUnem_MalePct <- ggplot() +
+  geom_sf(data = pivotedUnem_Male,
+          aes(fill = percentage)) +
+  scale_fill_viridis(name = "Unemployment",
+                     option = "magma",
+                     limits = c(0, 0.2)) +
+  labs(
+    title = "Population of Unemployed Males over Age 16 as a Percentage of Total Population",
+    fill = "Unemployment"
+  ) + ggrepel::geom_text_repel(data = cities_data, aes(x = lon, y = lat, label = location))
+ggraphPivotUnem_MalePct
+```
+
+
+# female unemployment
+```{r}
+ma_unemployment_female <- get_acs(
+  geography = "tract",
+  variables = c("B23001_001", "B23001_094", "B23001_101", "B23001_108", "B23001_115", "B23001_122",
+               "B23001_129", "B23001_136", "B23001_143", "B23001_150", "B23001_157",
+               "B23001_162", "B23001_167", "B23001_172"),
+  state = "MA",
+  year = 2020,
+  geometry = TRUE)|>
+  mutate(
+    lng = purrr::map_dbl(geometry, ~st_centroid(.x)[[1]]),
+    lat = purrr::map_dbl(geometry, ~st_centroid(.x)[[2]])
+  )
+
+pivotedUnem_Female = ma_unemployment_female %>%
+  pivot_wider(
+    id_cols = c("GEOID", "geometry", "lng", "lat"),
+    names_from = "variable", 
+    values_from = "estimate") %>%
+  mutate(total_female_unemployed = B23001_094 + B23001_101 + B23001_108 + B23001_115 + B23001_122 + B23001_129 + B23001_136 + B23001_143 + B23001_150 + B23001_157 + B23001_162 + B23001_167 + B23001_172,
+         percent = total_female_unemployed / B23001_001)
+
+
+ggraphPivotUnem_Female <- ggplot() +
+  geom_sf(data = pivotedUnem_Female,
+          aes(fill = total_female_unemployed)) +
+  scale_fill_viridis(name = "Unemployment",
+                     option = "magma",
+                     limits = c(0, 486)) +
+  labs(
+    title = "Population of Unemployed Females over Age 16",
+    fill = "Unemployment"
+  ) + ggrepel::geom_text_repel(data = cities_data, aes(x = lon, y = lat, label = location))
+ggraphPivotUnem_Female
+
+```
+
+## female unemployment as a percentage of total population
+```{r}
+ggraphPivotUnem_FemalePct <- ggplot() +
+  geom_sf(data = pivotedUnem_Female,
+          aes(fill = percent)) +
+  scale_fill_viridis(name = "Unemployment",
+                     option = "magma",
+                     limits = c(0, 0.21)) +
+  labs(
+    title = "Population of Unemployed Females over Age 16 as a Percentage of Total Population",
+    fill = "Unemployment"
+  ) + ggrepel::geom_text_repel(data = cities_data, aes(x = lon, y = lat, label = location))
+ggraphPivotUnem_FemalePct
+```
+
